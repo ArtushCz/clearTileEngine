@@ -17,9 +17,8 @@ namespace TestGame
 
         public int xOffset = 0;
         public int yOffset = 0;
-        internal bool debug;
+        internal bool debug = true;
         public int zoom = 1;
-        public bool isReleased;
 
         public Camera()
         {
@@ -33,7 +32,7 @@ namespace TestGame
             this.width = width;
             this.height = height;
             this.cameraPosition = new Vector2(0, 0);
-            xOffset = 0;
+            xOffset = -width / 2 + 64;
         }
 
         public bool isTileVisibe(int x, int y)
@@ -42,7 +41,7 @@ namespace TestGame
 
             if (x + 128 > this.width + xOffset - this.width && x - 128 < this.width + xOffset)
             {
-                if (y + 64 > this.height + yOffset - this.height && y - 64 < this.height + yOffset)
+                if (y + 128 > this.height + yOffset - this.height && y - 128 < this.height + yOffset)
                 {
                     visible = true;
                 }
@@ -58,7 +57,7 @@ namespace TestGame
 
         internal void controls(Keys[] pressedKeys)
         {
-           
+
             for (int i = 0; i < pressedKeys.Length; i++)
             {
 
@@ -105,5 +104,7 @@ namespace TestGame
             }
 
         }
-     
+
+
+    }
 }

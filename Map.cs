@@ -27,6 +27,9 @@ namespace TestGame
         private List<GameTextures2D> textureList;
         public Point mousePosition;
         private Point pointingAt;
+        private Tile[][] twoDTiles;
+        private int tilesX;
+        private int tilesY;
 
         public Map(SpriteBatch spriteBatch, GraphicsDeviceManager graphics)
         {
@@ -46,22 +49,90 @@ namespace TestGame
             return (x + y) / 2;
         }
 
+        public Point isoTo2D(Point pt){
+          Point tempPt = new Point(0, 0);
+          tempPt.X = (2 * pt.Y + pt.X) / 2;
+          tempPt.Y = (2 * pt.Y - pt.X) / 2;
+          return(tempPt);
+        }
+        public Point twoDToIso(Point pt)
+        {
+            Point tempPt = new Point(0,0);
+                tempPt.X = pt.X - pt.Y;
+                tempPt.Y = (pt.X + pt.Y) / 2;
+            return(tempPt);
+        }
+        private Point worldToIso(Point point)
+        {
+            point.X /= tileWidth/2;
+            point.Y = (point.Y - tileHeight / 2) / tileHeight + point.X;
+            point.Y -= point.Y - point.X;
+
+            //if (point.Y < 0) point.Y = 0;
+            return point;
+        }
+
 
         public void drawMap(Camera camera)
         {
             this.zoom = camera.zoom;
-            tileWidth = 128 /zoom;
+            tileWidth = 128 / zoom;
             tileHeight = 128 / zoom;
 
 
-
+            
             if (spriteBatch != null)
             {
-              
-
-
 
                 tilesDrawed = 0;
+                Point start = new Point(0,0);
+                Point bottomRight = new Point(0, 0);
+
+                int leftX = (camera.xOffset) ;
+
+                start = worldToIso(new Point(-camera.xOffset - camera.width /2, camera.yOffset));
+               
+
+                if (start.X < 0) start.X = 0;
+                if (start.Y < 0) start.Y = 0;
+                 
+                
+
+                
+                for (int i = start.X; i <= start.X + 25; i++)
+                {
+                    for (int j = start.Y; j <= start.Y +25; j++)
+                    {
+                        if (tileExists(i, j))
+                        {
+                            Tile tile = twoDTiles[i][j];
+                            int x = (int)tile.positionNumber.X * tileWidth / 2;
+                            int y = (int)tile.positionNumber.Y * tileHeight / 2;
+
+                            int ix = x - y;
+                            int iy = (x + y) / 2;
+                            Point isoCoords = new Point(ix, iy);
+                            isoCoords.X -= camera.xOffset;
+                            isoCoords.Y -= camera.yOffset;
+
+                            tile.position.X = isoCoords.X;
+                            tile.position.Y = isoCoords.Y;
+                            Texture2D renderTexture = textureList.Find(texture => texture.type.Equals("grass") && texture.id == tile.textureId).getTexture2D();
+                            tile.drawTile(isoCoords, renderTexture, tileWidth, tileHeight);
+
+                            if (camera.debug)
+                            {
+                                string coords = string.Format(" {0},{1} ", tile.positionNumber.X, tile.positionNumber.Y);
+                                spriteBatch.DrawString(spriteFont, coords, new Vector2(isoCoords.X + (tileWidth / 2) - 12, isoCoords.Y + (tileHeight / 2 + 12) - 8), Color.White);
+                            }
+
+                            tilesDrawed++;
+
+                        }
+                    }
+                }
+
+                /*
                 List<Tile> visibleTiles = tiles.FindAll(r => (
                                calcIsoX((int)r.positionNumber.X * tileWidth / 2, (int)r.positionNumber.Y * tileHeight / 2) + tileWidth 
                                         > camera.width + camera.xOffset - camera.width &&
@@ -71,7 +142,7 @@ namespace TestGame
                                         > camera.height + camera.yOffset - camera.height &&
                                calcIsoY((int)r.positionNumber.X * tileWidth / 2, (int)r.positionNumber.Y * tileHeight / 2) - tileHeight 
                                                        < camera.height + camera.yOffset));
-
+                
                 foreach (Tile tile in visibleTiles)
                 {
                     int x = (int)tile.positionNumber.X * tileWidth / 2;
@@ -83,6 +154,8 @@ namespace TestGame
                     isoCoords.X -= camera.xOffset;
                     isoCoords.Y -= camera.yOffset;
 
+                    tile.position.X = isoCoords.X;
+                    tile.position.Y = isoCoords.Y;
                     Texture2D renderTexture = textureList.Find(texture => texture.type.Equals("grass") && texture.id == tile.textureId).getTexture2D();
                     tile.drawTile(isoCoords, renderTexture, tileWidth, tileHeight);
 
@@ -94,14 +167,19 @@ namespace TestGame
                      
                     tilesDrawed++;
                 }
+                
                 //mouse
-                string mousecoords = string.Format(" {0},{1} ", pointingAt.X, pointingAt.Y);
-                spriteBatch.DrawString(spriteFont, mousecoords, new Vector2(mousePosition.X + 16, mousePosition.Y - 14), Color.Black);
-                spriteBatch.DrawString(spriteFont, mousecoords, new Vector2(mousePosition.X + 15, mousePosition.Y - 15), Color.White);
 
-                Tile selectTile = tiles.Find(selectedTile => selectedTile.positionNumber.X == (float)pointingAt.X && selectedTile.positionNumber.Y == (float)pointingAt.Y);
-                if(selectTile != null) { 
-                    int x1 = (int)selectTile.positionNumber.X * tileWidth / 2;
+                //Tile selectTile = tiles.Find(selectedTile => selectedTile.positionNumber.X == (float)pointingAt.X && selectedTile.positionNumber.Y == (float)pointingAt.Y);
+                Tile selectTile = visibleTiles.FindLast(selectedTile =>
+                                (mousePosition.X > selectedTile.position.X && mousePosition.X < selectedTile.position.X + tileWidth / camera.zoom) &&
+                                (mousePosition.Y > selectedTile.position.Y + tileHeight /camera.zoom / 2 && mousePosition.Y < selectedTile.position.Y + tileHeight / camera.zoom));
+               
+
+                
+
+                if (selectTile != null) { 
+                    int x1 = (int)selectTile.positionNumber.X * tileWidth  / 2;
                     int y1 = (int)selectTile.positionNumber.Y * tileHeight / 2;
 
                     int ix1 = x1 - y1;
@@ -113,10 +191,39 @@ namespace TestGame
 
                     Texture2D renderTexture1 = textureList.Find(texture => texture.type.Equals("basic") && texture.id == 999).getTexture2D();
                     selectTile.drawTile(isoCoords1, renderTexture1, tileWidth, tileHeight/2);
+                    if (camera.debug)
+                    {
+                        string mousecoords = string.Format(" {0},{1} ", selectTile.positionNumber.X, selectTile.positionNumber.Y);
+                        spriteBatch.DrawString(spriteFont, mousecoords, new Vector2(mousePosition.X + 16, mousePosition.Y - 14), Color.Black);
+                        spriteBatch.DrawString(spriteFont, mousecoords, new Vector2(mousePosition.X + 15, mousePosition.Y - 15), Color.White);
+                    }
                 }
                 //end mouse
+                */
             }
         }
+
+        public bool tileExists(int i, int j)
+        {
+                if (i>=0 && j>=0)
+                {
+                    if(i<=tilesX && j <= tilesY)
+                    {
+                        return true;
+                    }
+                    else
+                    {
+                        return false;
+                    }
+                }
+                else
+                {
+                    return false;
+                }
+
+                
+        }
+    
 
        
         public void load(ContentManager content, SpriteBatch spriteBatch, SpriteFont spriteFont, SpriteFont spriteFontBig)
@@ -128,18 +235,21 @@ namespace TestGame
             this.content = content;
             this.textureList = new List<GameTextures2D>();
             int counter = 0;
-            int tilesX = 700;
-            int tilesY = 700;
+            this.tilesX = 1000;
+            this.tilesY = 1000;
 
             this.mapSize = 0;
+            this.twoDTiles = new Tile[tilesX][];
             Random randomNum = new Random();
-            for (int i = 0; i <= tilesX; i++)
+            for (int i = 0; i < tilesX; i++)
             {
-                for (int j = 0; j <= tilesY; j++)
+                twoDTiles[i] = new Tile[tilesY];
+                for (int j = 0; j < tilesY; j++)
                 {
                     mapSize++;
                     counter++;
-                    tiles.Add(new Tile(counter, randomNum.Next(1,18), new Vector2(0, 0), new Vector2(j, i), spriteBatch, spriteFont, content));
+                    twoDTiles[i][j] = new Tile(counter, randomNum.Next(1, 18), new Vector2(0, 0), new Vector2(j, i), spriteBatch, spriteFont, content);
+                   // tiles.Add(new Tile(counter, randomNum.Next(1,18), new Vector2(0, 0), new Vector2(j, i), spriteBatch, spriteFont, content));
                 }
             }
             loadTextures();
@@ -159,6 +269,9 @@ namespace TestGame
         public void handleMouse(GameMouse mouse, Camera camera)
         {
             mousePosition = mouse.state.Position;
+
+            //mousePosition.X -= camera.xOffset;
+            //mousePosition.Y -= camera.yOffset;
 
             Point tile = mousePosition;
             tile.X += camera.xOffset;

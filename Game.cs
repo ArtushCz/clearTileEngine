@@ -27,7 +27,6 @@ namespace TestGame
         public const int WINDOW_HEIGHT = 720;
         public const int WINDOW_WIDTH = 1280;
         private Texture2D consoleText;
-        private bool debug = false;
         public GameMouse gameMouse;
 
         public Game()
@@ -37,7 +36,6 @@ namespace TestGame
             graphics.PreferredBackBufferWidth = WINDOW_WIDTH;
             graphics.PreferMultiSampling = true;
             IsMouseVisible = true;
-
             // graphics.ToggleFullScreen();
 
             graphics.ApplyChanges();
