@@ -41,15 +41,9 @@ namespace TestGame
             this.tileWidth = 128;
         }
 
-
-
         internal void drawTile(Point p, Texture2D texture, int tileWidth, int tileHeight)
         {
-
             spriteBatch.Draw(texture, new Rectangle(p.X, p.Y, tileWidth, tileHeight), Color.White);
-
-           
-
         }
 
         internal int getId()

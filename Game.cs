@@ -2,6 +2,7 @@
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using System;
+using System.Collections.Generic;
 
 namespace TestGame
 {
@@ -10,7 +11,7 @@ namespace TestGame
     /// </summary>
     public class Game : Microsoft.Xna.Framework.Game
     {
-        GraphicsDeviceManager graphics;
+        static GraphicsDeviceManager graphics;
         SpriteBatch spriteBatch;
 
 
@@ -22,12 +23,16 @@ namespace TestGame
         TimeSpan elapsedTime = TimeSpan.Zero;
         SpriteFont spriteFont;
         private SpriteFont spriteFontBig;
+        public static List<string> consoleText = new List<string>();
 
 
-        public const int WINDOW_HEIGHT = 720;
-        public const int WINDOW_WIDTH = 1280;
-        private Texture2D consoleText;
+        public static int WINDOW_HEIGHT = 720;
+        public static int WINDOW_WIDTH = 1280;
+        private Texture2D consoleTexture;
         public GameMouse gameMouse;
+
+        public MyKeyboard myKeyboard;
+        private Texture2D[] mouseTextures;
 
         public Game()
         {
@@ -35,12 +40,20 @@ namespace TestGame
             graphics.PreferredBackBufferHeight = WINDOW_HEIGHT;
             graphics.PreferredBackBufferWidth = WINDOW_WIDTH;
             graphics.PreferMultiSampling = true;
-            IsMouseVisible = true;
-            // graphics.ToggleFullScreen();
+            IsMouseVisible = false;
+           // graphics.ToggleFullScreen();
 
             graphics.ApplyChanges();
             Content.RootDirectory = "Content";
         }
+
+        public static void graphicsChange()
+        {
+            graphics.PreferredBackBufferHeight = WINDOW_HEIGHT;
+            graphics.PreferredBackBufferWidth = WINDOW_WIDTH;
+        }
+
+       
 
         /// <summary>
         /// Allows the game to perform any initialization it needs to before starting to run.
@@ -53,7 +66,9 @@ namespace TestGame
             // TODO: Add your initialization logic here
             gameMap = new Map(spriteBatch, graphics);
             camera = new Camera(WINDOW_HEIGHT, WINDOW_WIDTH);
-            gameMouse = new GameMouse();
+           
+            myKeyboard = new MyKeyboard(camera,gameMap);
+
             base.Initialize();
         }
 
@@ -69,11 +84,27 @@ namespace TestGame
             spriteFont = Content.Load<SpriteFont>("font");
             spriteFontBig = Content.Load<SpriteFont>("fontBig");
 
-            consoleText = Content.Load<Texture2D>("console");
+            consoleTexture = Content.Load<Texture2D>("Textures/consoleSee");
+            gameMouse = new GameMouse(Content.Load<Texture2D>("Textures/mouseMovementMap" + WINDOW_WIDTH + WINDOW_HEIGHT), new Point(WINDOW_WIDTH,WINDOW_HEIGHT));
             gameMap.load(Content, spriteBatch, spriteFont, spriteFontBig);
             // TODO: use this.Content to load your game content here
 
+            mouseTextures = new Texture2D[9];
+            mouseTextures[0] = Content.Load<Texture2D>("Textures/Cursor/down");
+            mouseTextures[1] = Content.Load<Texture2D>("Textures/Cursor/downleft");
+            mouseTextures[2] = Content.Load<Texture2D>("Textures/Cursor/downright");
+            mouseTextures[3] = Content.Load<Texture2D>("Textures/Cursor/left");
+            mouseTextures[4] = Content.Load<Texture2D>("Textures/Cursor/right");
+            mouseTextures[5] = Content.Load<Texture2D>("Textures/Cursor/up");
+            mouseTextures[6] = Content.Load<Texture2D>("Textures/Cursor/upleft");
+            mouseTextures[7] = Content.Load<Texture2D>("Textures/Cursor/upright");
+            mouseTextures[8] = Content.Load<Texture2D>("Textures/Cursor/staticCursor");
 
+        }
+
+        internal static void Log(string text)
+        {
+            consoleText.Add(text);
 
         }
 
@@ -106,8 +137,17 @@ namespace TestGame
             if (Keyboard.GetState().IsKeyDown(Keys.Escape))
                 Exit();
 
-           
-            camera.controls(Keyboard.GetState().GetPressedKeys());
+            
+            consoleText.Add(string.Format("FPS: {0}", frameRate));
+            consoleText.Add(string.Format("TilesCount: {0} ", gameMap.tilesDrawed));
+            consoleText.Add(string.Format("Total tiles: {0} ", gameMap.mapSize));
+            consoleText.Add("------------------------------------");
+
+
+            myKeyboard.controls();
+            gameMouse.updateCursor();
+            gameMouse.handleMouse(camera);
+
             gameMap.handleMouse(gameMouse, camera);
             base.Update(gameTime);
         }
@@ -125,7 +165,6 @@ namespace TestGame
             spriteBatch.Begin();
 
             gameMap.drawMap(camera);
-
             frameCounter++;
             
             if (camera.debug)
@@ -133,30 +172,52 @@ namespace TestGame
                 drawConsole(spriteBatch, spriteFont);
             }
 
+            drawMoveCursor();
 
             spriteBatch.End();
 
             base.Draw(gameTime);
         }
 
+        private void drawMoveCursor()
+        {
+            if (gameMouse.moving)
+            {
+               
+                spriteBatch.Draw(mouseTextures[gameMouse.drawMouse], new Rectangle(gameMouse.state.Position.X - 6, gameMouse.state.Position.Y - 6, 16, 16), Color.White);
+            }
+            else
+            {
+                spriteBatch.Draw(mouseTextures[8], new Rectangle(gameMouse.state.Position.X - 6, gameMouse.state.Position.Y - 6, 16, 16), Color.White);
+            }
+            
+        }
+
         private void drawConsole(SpriteBatch spriteBatch, SpriteFont spriteFont)
         {
-            spriteBatch.Draw(consoleText, new Rectangle(0, 0, 300, 48), Color.White);
+            Point consolePosition = new Point(0, 0);
+            int consoleTextSpace = 16;
+            
+            spriteBatch.Draw(consoleTexture, new Rectangle(0, consolePosition.Y, WINDOW_WIDTH, 195), Color.White);
 
-            string tilesdr = string.Format("TilesCount: {0} ", gameMap.tilesDrawed);
-
-            spriteBatch.DrawString(spriteFontBig, tilesdr, new Vector2(6, 16), Color.Black);
-            spriteBatch.DrawString(spriteFontBig, tilesdr, new Vector2(5, 15), Color.White);
-
-            string fps = string.Format("fps: {0} mem : {1}", frameRate, GC.GetTotalMemory(false));
-
-            spriteBatch.DrawString(spriteFontBig, fps, new Vector2(6, 1), Color.Black);
-            spriteBatch.DrawString(spriteFontBig, fps, new Vector2(5, 0), Color.White);
-
-            string totalTiles = string.Format("Total tiles: {0} ", gameMap.mapSize);
-
-            spriteBatch.DrawString(spriteFontBig, totalTiles, new Vector2(6, 32), Color.Black);
-            spriteBatch.DrawString(spriteFontBig, totalTiles, new Vector2(5, 31), Color.White);
+            int i = 0;
+            Vector2 position = new Vector2(5, consolePosition.Y +10);
+            foreach (string text in consoleText)
+            {
+                if (i != 0)
+                {
+                    position.Y += consoleTextSpace;
+                    if (i % 11 == 0)
+                    {
+                        position.X += 300;
+                        position.Y = consolePosition.Y+10;
+                    }
+                }
+                spriteBatch.DrawString(spriteFontBig, text, position, Color.White);
+                i++;
+            }
+            consoleText.Clear();
+           
 
         }
     }

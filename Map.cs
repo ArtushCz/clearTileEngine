@@ -7,7 +7,7 @@ using Microsoft.Xna.Framework.Input;
 
 namespace TestGame
 {
-    internal class Map
+    public class Map
     {
         private SpriteBatch spriteBatch;
         private GraphicsDeviceManager graphics;
@@ -17,7 +17,6 @@ namespace TestGame
         private SpriteFont spriteFontBig;
         public int tilesDrawed;
 
-        public int zoom = 1;
 
         public int tileWidth = 128;
         public int tileHeight = 128;
@@ -26,180 +25,221 @@ namespace TestGame
         public int mapSize;
         private List<GameTextures2D> textureList;
         public Point mousePosition;
-        private Point pointingAt;
+
         private Tile[][] twoDTiles;
         private int tilesX;
         private int tilesY;
+        internal static bool drawTileSelect;
+        private int selectedTexture = 1;
+        private int grassTexturesCount;
+        private Texture2D pixel;
 
         public Map(SpriteBatch spriteBatch, GraphicsDeviceManager graphics)
         {
             this.spriteBatch = spriteBatch;
             this.graphics = graphics;
             this.tiles = new List<Tile>();
-            tileWidth = 128 / zoom;
-            tileHeight = 128 / zoom;
+            tileWidth = 128 ;
+            tileHeight = 128 ;
         }
-        private int calcIsoX(int x, int y)
+      
+
+        public Point getZigZagPos(int x, int y)  //x,y map position (offset)
         {
-            return x - y;
+            int sx = x / (tileWidth/2);
+            int sy = y / tileHeight;
+
+            int off = (sx % 2 == 1) ? (tileWidth / 2 ) : (32);
+            
+
+            int isoX = (2 * y) / (tileHeight / 2);
+            int isoY = (x - off) / tileWidth;
+
+            return new Point(isoX, isoY);
         }
 
-        private int calcIsoY(int x, int y)
+        private void changeTileAt(Point mousePosition, Camera camera, int selectedTexture)
         {
-            return (x + y) / 2;
+            Point mouseTilePos = getZigZagPos(mousePosition.X + camera.xOffset, mousePosition.Y + camera.yOffset);
+            if (tileExists(mouseTilePos.X - 2, mouseTilePos.Y))
+                twoDTiles[mouseTilePos.X - 2][mouseTilePos.Y].textureId = selectedTexture;
         }
 
-        public Point isoTo2D(Point pt){
-          Point tempPt = new Point(0, 0);
-          tempPt.X = (2 * pt.Y + pt.X) / 2;
-          tempPt.Y = (2 * pt.Y - pt.X) / 2;
-          return(tempPt);
-        }
-        public Point twoDToIso(Point pt)
+        private void selectTileAt(Point mousePosition, Camera camera)
         {
-            Point tempPt = new Point(0,0);
-                tempPt.X = pt.X - pt.Y;
-                tempPt.Y = (pt.X + pt.Y) / 2;
-            return(tempPt);
+            Point startTilesPos = new Point(75, 60);
+            Point endTilePosition = new Point(camera.width - 110, camera.height - 110);
+            int i = 1;
+            for (int y = startTilesPos.Y; y < endTilePosition.Y; y += 64)
+            {
+                for (int x = startTilesPos.X; x < endTilePosition.X; x += 75)
+                {
+                    if ((mousePosition.X > x && mousePosition.X < x + 64) && mousePosition.Y > y && mousePosition.Y < y + 64)
+                    {
+                        if(i <= grassTexturesCount)
+                        selectedTexture = i;
+                                       
+                    }
+                    i++;
+                }
+            }
         }
-        private Point worldToIso(Point point)
-        {
-            point.X /= tileWidth/2;
-            point.Y = (point.Y - tileHeight / 2) / tileHeight + point.X;
-            point.Y -= point.Y - point.X;
 
-            //if (point.Y < 0) point.Y = 0;
-            return point;
-        }
+
 
 
         public void drawMap(Camera camera)
         {
-            this.zoom = camera.zoom;
-            tileWidth = 128 / zoom;
-            tileHeight = 128 / zoom;
 
+            tileWidth = 128 ;
+            tileHeight = 128 ;
 
-            
             if (spriteBatch != null)
             {
 
                 tilesDrawed = 0;
-                Point start = new Point(0,0);
-                Point bottomRight = new Point(0, 0);
 
-                int leftX = (camera.xOffset) ;
+                Point start = new Point(0, 0);
+                Point end = new Point(0, 0);
 
-                start = worldToIso(new Point(-camera.xOffset - camera.width /2, camera.yOffset));
-               
 
-                if (start.X < 0) start.X = 0;
-                if (start.Y < 0) start.Y = 0;
-                 
-                
 
-                
-                for (int i = start.X; i <= start.X + 25; i++)
+
+                start = getZigZagPos(camera.xOffset, camera.yOffset);
+                end = getZigZagPos(camera.xOffset + camera.width + 32, camera.yOffset + camera.height);
+
+                // edge of map controll
+                if (start.Y <= 0) camera.moveableXLeft = false;
+                else camera.moveableXLeft = true;
+                if (start.X <= 2) camera.moveableYTop = false;
+                else camera.moveableYTop = true;
+                if (end.Y >= tilesY - 1) camera.moveableXRight = false;
+                else camera.moveableXRight = true;
+                if (end.X >= tilesX - 1) camera.moveableYDown = false;
+                else camera.moveableYDown = true;
+
+
+                for (int i = start.X - 3; i < end.X + 1; i++)
                 {
-                    for (int j = start.Y; j <= start.Y +25; j++)
+                    for (int j = start.Y - 1; j < end.Y + 1; j++)
                     {
                         if (tileExists(i, j))
                         {
                             Tile tile = twoDTiles[i][j];
-                            int x = (int)tile.positionNumber.X * tileWidth / 2;
-                            int y = (int)tile.positionNumber.Y * tileHeight / 2;
+                            Point drawPosition = new Point((int)tile.position.X, (int)tile.position.Y);
 
-                            int ix = x - y;
-                            int iy = (x + y) / 2;
-                            Point isoCoords = new Point(ix, iy);
-                            isoCoords.X -= camera.xOffset;
-                            isoCoords.Y -= camera.yOffset;
+                            Point isoCoords = new Point(drawPosition.X, drawPosition.Y);
+                            drawPosition.X -= camera.xOffset;
+                            drawPosition.Y -= camera.yOffset;
 
-                            tile.position.X = isoCoords.X;
-                            tile.position.Y = isoCoords.Y;
                             Texture2D renderTexture = textureList.Find(texture => texture.type.Equals("grass") && texture.id == tile.textureId).getTexture2D();
-                            tile.drawTile(isoCoords, renderTexture, tileWidth, tileHeight);
+                            tile.drawTile(drawPosition, renderTexture, tileWidth, tileHeight);
+                            /*
+                                                        if (camera.debug)
+                                                        {
 
-                            if (camera.debug)
-                            {
-                                string coords = string.Format(" {0},{1} ", tile.positionNumber.X, tile.positionNumber.Y);
-                                spriteBatch.DrawString(spriteFont, coords, new Vector2(isoCoords.X + (tileWidth / 2) - 12, isoCoords.Y + (tileHeight / 2 + 12) - 8), Color.White);
-                            }
-
+                                                           string coords = string.Format(" X: {0} Y: {1} ", tile.positionNumber.X, tile.positionNumber.Y);
+                                                            spriteBatch.DrawString(spriteFont, coords, new Vector2(drawPosition.X + (tileWidth / 2) - 20, drawPosition.Y + (tileHeight / 2 + 8)), Color.White);
+                                                        }
+                                                        */
                             tilesDrawed++;
 
                         }
                     }
                 }
-
-                /*
-                List<Tile> visibleTiles = tiles.FindAll(r => (
-                               calcIsoX((int)r.positionNumber.X * tileWidth / 2, (int)r.positionNumber.Y * tileHeight / 2) + tileWidth 
-                                        > camera.width + camera.xOffset - camera.width &&
-                               calcIsoX((int)r.positionNumber.X * tileWidth / 2, (int)r.positionNumber.Y * tileHeight / 2) - tileWidth 
-                                                       < camera.width + camera.xOffset) &&
-                              (calcIsoY((int)r.positionNumber.X * tileWidth / 2, (int)r.positionNumber.Y * tileHeight / 2) + tileHeight 
-                                        > camera.height + camera.yOffset - camera.height &&
-                               calcIsoY((int)r.positionNumber.X * tileWidth / 2, (int)r.positionNumber.Y * tileHeight / 2) - tileHeight 
-                                                       < camera.height + camera.yOffset));
-                
-                foreach (Tile tile in visibleTiles)
+                if (camera.debug)
                 {
-                    int x = (int)tile.positionNumber.X * tileWidth / 2;
-                    int y = (int)tile.positionNumber.Y * tileHeight / 2;
-
-                    int ix = x - y;
-                    int iy = (x + y) / 2;
-                    Point isoCoords = new Point(ix, iy);
-                    isoCoords.X -= camera.xOffset;
-                    isoCoords.Y -= camera.yOffset;
-
-                    tile.position.X = isoCoords.X;
-                    tile.position.Y = isoCoords.Y;
-                    Texture2D renderTexture = textureList.Find(texture => texture.type.Equals("grass") && texture.id == tile.textureId).getTexture2D();
-                    tile.drawTile(isoCoords, renderTexture, tileWidth, tileHeight);
-
-                    if (camera.debug)
+                    for (int i = start.X - 3; i < end.X + 1; i++)
                     {
-                        string coords = string.Format(" {0},{1} ", tile.positionNumber.X, tile.positionNumber.Y);
-                        spriteBatch.DrawString(spriteFont, coords, new Vector2(isoCoords.X + (tileWidth/2) -12, isoCoords.Y + (tileHeight/2+12)-8), Color.White);
+                        for (int j = start.Y -1; j < end.Y + 1; j++)
+                        {
+
+                            if (tileExists(i, j))
+                            {
+                                Tile tile = twoDTiles[i][j];
+                                Point drawPosition = new Point((int)tile.position.X, (int)tile.position.Y);
+
+                                Point isoCoords = new Point(drawPosition.X, drawPosition.Y);
+                                drawPosition.X -= camera.xOffset;
+                                drawPosition.Y -= camera.yOffset;
+
+                                string coords = string.Format(" X: {0} Y: {1} ", tile.positionNumber.X, tile.positionNumber.Y);
+                                spriteBatch.DrawString(spriteFont, coords, new Vector2(drawPosition.X + (tileWidth / 2) - 20, drawPosition.Y + (tileHeight / 2 + 8)), Color.White);
+                            }
+                        }
                     }
-                     
-                    tilesDrawed++;
                 }
-                
+            
+
                 //mouse
+                if (!drawTileSelect)
+                {
+                    Tile selectedTile = null;
+                    Point mouseTilePos = getZigZagPos(mousePosition.X + camera.xOffset, mousePosition.Y + camera.yOffset);
+                    if (tileExists(mouseTilePos.X - 2, mouseTilePos.Y))
+                        selectedTile = twoDTiles[mouseTilePos.X - 2][mouseTilePos.Y];
 
-                //Tile selectTile = tiles.Find(selectedTile => selectedTile.positionNumber.X == (float)pointingAt.X && selectedTile.positionNumber.Y == (float)pointingAt.Y);
-                Tile selectTile = visibleTiles.FindLast(selectedTile =>
-                                (mousePosition.X > selectedTile.position.X && mousePosition.X < selectedTile.position.X + tileWidth / camera.zoom) &&
-                                (mousePosition.Y > selectedTile.position.Y + tileHeight /camera.zoom / 2 && mousePosition.Y < selectedTile.position.Y + tileHeight / camera.zoom));
-               
-
-                
-
-                if (selectTile != null) { 
-                    int x1 = (int)selectTile.positionNumber.X * tileWidth  / 2;
-                    int y1 = (int)selectTile.positionNumber.Y * tileHeight / 2;
-
-                    int ix1 = x1 - y1;
-                    int iy1 = (x1 + y1) / 2;
-                    Point isoCoords1 = new Point(ix1, iy1);
-                    isoCoords1.X -= camera.xOffset;
-                    isoCoords1.Y -= camera.yOffset;
-                    isoCoords1.Y += 48;
-
-                    Texture2D renderTexture1 = textureList.Find(texture => texture.type.Equals("basic") && texture.id == 999).getTexture2D();
-                    selectTile.drawTile(isoCoords1, renderTexture1, tileWidth, tileHeight/2);
-                    if (camera.debug)
+                    if (selectedTile != null)
                     {
-                        string mousecoords = string.Format(" {0},{1} ", selectTile.positionNumber.X, selectTile.positionNumber.Y);
-                        spriteBatch.DrawString(spriteFont, mousecoords, new Vector2(mousePosition.X + 16, mousePosition.Y - 14), Color.Black);
-                        spriteBatch.DrawString(spriteFont, mousecoords, new Vector2(mousePosition.X + 15, mousePosition.Y - 15), Color.White);
+
+                        Point drawPosition = new Point((int)selectedTile.position.X, (int)selectedTile.position.Y);
+
+                        Point isoCoords = new Point(drawPosition.X, drawPosition.Y);
+                        drawPosition.X -= camera.xOffset;
+                        drawPosition.Y -= camera.yOffset;
+                        drawPosition.Y += 48;
+
+                        Game.Log("Tile Texture ID: " + selectedTile.textureId);
+                        Texture2D renderTexture1 = textureList.Find(texture => texture.type.Equals("basic") && texture.id == 999).getTexture2D();
+                        selectedTile.drawTile(drawPosition, renderTexture1, tileWidth, tileHeight / 2);
+                        if (camera.debug)
+                        {
+                            string mousecoords = string.Format(" {0},{1} ", selectedTile.positionNumber.X, selectedTile.positionNumber.Y);
+                            spriteBatch.DrawString(spriteFont, mousecoords, new Vector2(mousePosition.X + 16, mousePosition.Y - 14), Color.Black);
+                            spriteBatch.DrawString(spriteFont, mousecoords, new Vector2(mousePosition.X + 15, mousePosition.Y - 15), Color.White);
+                        }
                     }
                 }
                 //end mouse
-                */
+               
+                //tile select 
+
+                if (drawTileSelect)
+                {
+                    Point startTilesPos = new Point(75, 60);
+                    Point endTilePosition = new Point(camera.width - 110, camera.height - 110);
+                    MyGraphics.drawBox(new Point(startTilesPos.X - 26, startTilesPos.Y - 11), new Point(endTilePosition.X + 11, endTilePosition.Y + 11), spriteBatch, pixel, Color.DarkGray );
+
+                    Texture2D consoleTexture = content.Load<Texture2D>("Textures/consoleSee");
+                    
+                    spriteBatch.Draw(consoleTexture, new Rectangle(startTilesPos.X-25, startTilesPos.Y-10, endTilePosition.X +10, endTilePosition.Y +10), Color.White);
+                    int i = 1;
+                    for (int y = startTilesPos.Y; y < endTilePosition.Y; y += 64)
+                    {
+                        for (int x = startTilesPos.X; x < endTilePosition.X; x += 75)
+                        { 
+                            if (i == grassTexturesCount+1) break;
+
+                            if (i == selectedTexture) {
+                                spriteBatch.Draw(content.Load<Texture2D>("Textures/selectBlock"), new Rectangle(x, y, tileWidth / 2, tileHeight / 2), Color.White); 
+                            }
+
+                            Texture2D renderTexture = textureList.Find(texture => texture.type.Equals("grass") && texture.id == i).getTexture2D();
+                            if ((mousePosition.X > x && mousePosition.X < x + 64) && (mousePosition.Y > y && mousePosition.Y < y + 64))
+                            {
+                                spriteBatch.Draw(content.Load<Texture2D>("Textures/selectBlock"), new Rectangle(x, y, tileWidth/2, tileHeight/2), Color.White);
+                                
+                            }
+                           
+                            spriteBatch.Draw(renderTexture, new Rectangle(x,y, tileWidth / 2, tileHeight / 2), Color.White);
+                          
+                            i++;
+                        }
+                    }
+
+                    Game.Log("Selected texture ID: " + this.selectedTexture.ToString());
+                }
+                //tile select end
             }
         }
 
@@ -219,13 +259,11 @@ namespace TestGame
                 else
                 {
                     return false;
-                }
-
-                
+                }   
         }
-    
 
-       
+
+
         public void load(ContentManager content, SpriteBatch spriteBatch, SpriteFont spriteFont, SpriteFont spriteFontBig)
         {
             this.spriteBatch = spriteBatch;
@@ -236,71 +274,68 @@ namespace TestGame
             this.textureList = new List<GameTextures2D>();
             int counter = 0;
             this.tilesX = 1000;
-            this.tilesY = 1000;
+            this.tilesY = 500;
 
             this.mapSize = 0;
-            this.twoDTiles = new Tile[tilesX][];
+            this.twoDTiles = new Tile[tilesX+1][];
             Random randomNum = new Random();
-            for (int i = 0; i < tilesX; i++)
-            {
-                twoDTiles[i] = new Tile[tilesY];
-                for (int j = 0; j < tilesY; j++)
-                {
+
+            //zigzag
+            int offset_x = 0;
+            for (int i = 0; i <= tilesX; i++) {
+                twoDTiles[i] = new Tile[tilesY+1];
+                if (i%2==0)
+                    offset_x = tileWidth / 2;
+                else
+                    offset_x = 0;
+
+                for (int j = 0; j <= tilesY; j++) {
                     mapSize++;
                     counter++;
-                    twoDTiles[i][j] = new Tile(counter, randomNum.Next(1, 18), new Vector2(0, 0), new Vector2(j, i), spriteBatch, spriteFont, content);
-                   // tiles.Add(new Tile(counter, randomNum.Next(1,18), new Vector2(0, 0), new Vector2(j, i), spriteBatch, spriteFont, content));
+
+                    int x = (j * tileWidth) + offset_x;
+                    int y = i * (tileHeight -64) / 2;
+                    twoDTiles[i][j] = new Tile(counter, randomNum.Next(1, 4), new Vector2(x, y), new Vector2(j,i), spriteBatch, spriteFont, content);
                 }
             }
+            
             loadTextures();
         }
 
         private void loadTextures()
         {
-            int grassTexturesCount = 17;
+            grassTexturesCount = 3;
             // grass textures
             for(int i = 1; i <= grassTexturesCount; i++)
             {
                 textureList.Add(new GameTextures2D(content.Load<Texture2D>("Textures/Grass/"+i.ToString()), "grass", i));
             }
             textureList.Add(new GameTextures2D(content.Load<Texture2D>("Textures/selectTile"), "basic", 999));
+            textureList.Add(new GameTextures2D(content.Load<Texture2D>("Textures/baseTile"), "basic", 1000));
+
+            pixel = content.Load<Texture2D>("Textures/Pixel");
         }
 
         public void handleMouse(GameMouse mouse, Camera camera)
         {
             mousePosition = mouse.state.Position;
 
-            //mousePosition.X -= camera.xOffset;
-            //mousePosition.Y -= camera.yOffset;
-
-            Point tile = mousePosition;
-            tile.X += camera.xOffset;
-            tile.Y += camera.yOffset;
-            pointingAt = getTileCoordinates(tile);
-            int temp = 0;
-            if (pointingAt.X < 0)
+            if (mouse.state.LeftButton == ButtonState.Pressed)
             {
-                temp = pointingAt.X;
-                pointingAt.X = pointingAt.Y;
-                pointingAt.Y = -temp;
-            }
-            if (pointingAt.Y < 0)
-            {
-                temp = pointingAt.Y;
-                pointingAt.Y = pointingAt.X;
-                pointingAt.X = -temp;
+                if (!drawTileSelect)
+                {
+                    changeTileAt(mousePosition, camera, selectedTexture);
+                }
+                if (drawTileSelect)
+                {
+                    selectTileAt(mousePosition, camera);
+                }
+               
             }
 
         }
 
-        public Point getTileCoordinates(Point pt){
-            Point tempPt = new Point(0, 0);
-                tempPt.X = (int)Math.Floor((decimal)pt.X / (decimal)(tileHeight / 2+32));
-                tempPt.Y = (int)Math.Floor((decimal)pt.Y / (decimal)(tileHeight / 2+32));
-             return(tempPt);
-        }
-
-}
+    }
 
 
 }
